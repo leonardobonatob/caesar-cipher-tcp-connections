@@ -1,44 +1,54 @@
 from socket import *
 import random
 
+
 def criptografar(mensagem, chave):
     mensagem_criptografada = ''
     for letra in mensagem:
-        if letra.isalpha():
-            if letra.islower():
-                mensagem_criptografada += chr((ord(letra) - 97 + chave) % 26 + 97)
-            else:
-                mensagem_criptografada += chr((ord(letra) - 65 + chave) % 26 + 65)
-        else:
-            mensagem_criptografada += letra
+        mensagem_criptografada += chr((ord(letra) + chave))
     return mensagem_criptografada
+
 
 def decriptografar(mensagem_criptografada, chave):
     mensagem_decriptografada = ''
-    for letra in mensagem_criptografada.decode():
-        if letra.isalpha():
-            if letra.islower():
-                mensagem_decriptografada += chr((ord(letra) - 97 - chave) % 26 + 97)
-            else:
-                mensagem_decriptografada += chr((ord(letra) - 65 - chave) % 26 + 65)
-        else:
-            mensagem_decriptografada += letra
+    for letra in mensagem_criptografada:
+            mensagem_decriptografada += chr((ord(letra) - chave))
     return mensagem_decriptografada
 
-# Parâmetros públicos para o algoritmo de Diffie-Hellman
+
+def primo_fast(N):
+    i = 2
+    while i < N:
+        R = N % i
+        if R == 0:
+            return False
+        i += 1
+    else:
+        return True
+
+
+def diffie_hellman(g, b, p):
+    if not primo_fast(p):
+        raise 'p não é primo!'
+    
+    return (pow(g, b, p))
+
+
 p = 23  # Número primo
-g = 5   # Raiz primitiva de p
+g = 5   # Raiz
 
-# Gera um número secreto privado para o cliente
-b = random.randint(2, p - 2)
 
-# Calcula o valor público do cliente
-B = pow(g, b, p)
+b = random.randint(2, p - 2) # Senha do server
+
+
+B = diffie_hellman(g, b, p) # Que vai ser enviado
+
 
 serverName = "10.1.70.33"
 serverPort = 13000
 clientSocket = socket(AF_INET, SOCK_STREAM)
 clientSocket.connect((serverName, serverPort))
+
 
 # Recebe o valor público do servidor
 A = int(clientSocket.recv(1024).decode())
@@ -46,15 +56,20 @@ A = int(clientSocket.recv(1024).decode())
 
 clientSocket.send(str(B).encode())
 
-# Calcula a chave secreta compartilhada
-s = pow(A, b, p)
 
-sentence = input("Input lowercase sentence: ")
+# Calcula a chave secreta compartilhada
+s = diffie_hellman(A, b, p)
+
+
+sentence = input("insira sentença: ")
 sentence_criptografada = criptografar(sentence, s)  # Criptografar a mensagem
 clientSocket.send(sentence_criptografada.encode())
 
-modifiedSentence = clientSocket.recv(65000)
+
+modifiedSentence = clientSocket.recv(65000).decode()
+print(modifiedSentence)
 text = decriptografar(modifiedSentence, s)  # Decriptografa a mensagem recebidaa
-print("Received from Make Upper Case Server: ", text)
+print("Recebido: ", text)
+
 
 clientSocket.close()
